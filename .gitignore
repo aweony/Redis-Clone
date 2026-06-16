@@ -1,0 +1,77 @@
+# Build Directories
+
+build/
+cmake-build-debug/
+cmake-build-release/
+out/
+
+# CMake
+
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Makefile
+
+# Executables
+
+*.exe
+*.out
+*.app
+redis_clone
+
+# Object Files
+
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Debug Files
+
+*.dSYM/
+*.pdb
+
+# Logs
+
+*.log
+
+# IDE
+
+.vscode/
+.idea/
+
+# macOS
+
+.DS_Store
+
+# Windows
+
+Thumbs.db
+
+# Linux
+
+*~
+
+# Test Coverage
+
+coverage/
+*.gcda
+*.gcno
+*.gcov
+
+# Temporary Files
+
+tmp/
+temp/
+
+# Environment Files
+
+.env
+
+# Generated Documentation
+
+docs/generated/
