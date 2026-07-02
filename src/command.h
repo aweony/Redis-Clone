@@ -5,13 +5,28 @@
 #include <vector>
 using namespace std;
 
+enum class CommandType {
+    SET,
+    GET,
+    DEL,
+    EXISTS,
+    EXPIRE,
+    UNKNOWN
+};
+
 struct Command {
-    std::string type;
+    CommandType type = CommandType::UNKNOWN;
     std::vector<string> args;
 };
 
 struct CommandParser {
-    static Command parse(const std::string& input);
+    static Command parse(const string& input);
+};
+
+class Store;
+
+struct CommandExecutor {
+    static string execute(const Command& cmd, Store& store);
 };
 
 #endif
