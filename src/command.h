@@ -11,6 +11,7 @@ enum class CommandType {
     DEL,
     EXISTS,
     EXPIRE,
+    PING,
     UNKNOWN
 };
 

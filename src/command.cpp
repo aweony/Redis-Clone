@@ -18,6 +18,7 @@ Command CommandParser::parse(const string& input) {
         else if (token == "DEL")    cmd.type = CommandType::DEL;
         else if (token == "EXISTS") cmd.type = CommandType::EXISTS;
         else if (token == "EXPIRE") cmd.type = CommandType::EXPIRE;
+        else if (token == "PING")   cmd.type = CommandType::PING;
         else                        cmd.type = CommandType::UNKNOWN;
     }
 
@@ -45,7 +46,7 @@ string CommandExecutor::execute(const Command& cmd, Store& store) {
         }
 
         case CommandType::DEL:
-            if (cmd.args.empty() or cmd.args.size() < 2) return "-ERR wrong number of arguments\r\n";
+            if (cmd.args.empty() or cmd.args.size() <= 2) return "-ERR wrong number of arguments\r\n";
             return store.del(cmd.args[0]) ? ":1\r\n" : ":0\r\n";
 
         case CommandType::EXISTS:
@@ -56,6 +57,10 @@ string CommandExecutor::execute(const Command& cmd, Store& store) {
             if (cmd.args.size() < 2) return "-ERR wrong number of arguments\r\n";
             store.expire(cmd.args[0], stoi(cmd.args[1]));
             return ":1\r\n";
+        
+        case CommandType::PING:
+            if (cmd.args.size() != 0) return "-ERR wrong number of arguments\r\n";
+            return "+PONG\r\n";
 
         default:
             return "-ERR unknown command\r\n";
