@@ -7,23 +7,25 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include "store.h"
+using namespace std;
+
+class Store;
 
 class Server {
 public:
-    Server(const std::string& address, int port);
+    Server(const string& address, int port);
+    ~Server();
     void start();
     void stop();
 
 private:
     void handleClient(int client_fd);
 
-    std::string address;
+    string address;
     int port;
     int server_fd = -1;
-    std::atomic<bool> running{false};
-    Store store;
-    std::mutex store_mutex;
+    atomic<bool> running{false};
+    mutex store_mutex;
 };
 
 #endif
