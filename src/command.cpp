@@ -1,5 +1,6 @@
 #include "command.h"
 #include "store.h"
+#include "aof_logger.h"
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -19,6 +20,7 @@ Command CommandParser::parse(const string& input) {
         else if (token == "EXISTS") cmd.type = CommandType::EXISTS;
         else if (token == "EXPIRE") cmd.type = CommandType::EXPIRE;
         else if (token == "PING")   cmd.type = CommandType::PING;
+        else if (token == "SAVE")   cmd.type = CommandType::SAVE;
         else                        cmd.type = CommandType::UNKNOWN;
     }
 
@@ -29,11 +31,12 @@ Command CommandParser::parse(const string& input) {
     return cmd;
 }
 
-string CommandExecutor::execute(const Command& cmd, Store& store) {
+string CommandExecutor::execute(const Command& cmd, Store& store, AOFLogger& logger) {
     switch (cmd.type) {
         case CommandType::SET:
             if (cmd.args.size() < 2) return "-ERR wrong number of arguments\r\n";
             store.set(cmd.args[0], cmd.args[1]);
+            logger.appendSet(cmd.args[0], cmd.args[1]);
             return "+OK\r\n";
 
         case CommandType::GET: {
@@ -45,9 +48,12 @@ string CommandExecutor::execute(const Command& cmd, Store& store) {
             return "$-1\r\n";
         }
 
-        case CommandType::DEL:
+        case CommandType::DEL: {
             if (cmd.args.size() != 1) return "-ERR wrong number of arguments\r\n";
-            return store.del(cmd.args[0]) ? ":1\r\n" : ":0\r\n";
+            bool deleted = store.del(cmd.args[0]);
+            if (deleted) logger.appendDel(cmd.args[0]);
+            return deleted ? ":1\r\n" : ":0\r\n";
+        }
 
         case CommandType::EXISTS:
             if (cmd.args.empty()) return "-ERR wrong number of arguments\r\n";
@@ -57,11 +63,17 @@ string CommandExecutor::execute(const Command& cmd, Store& store) {
             if (cmd.args.size() < 2) return "-ERR wrong number of arguments\r\n";
             store.expire(cmd.args[0], stoi(cmd.args[1]));
             return ":1\r\n";
-        
+
         case CommandType::PING:
             if (cmd.args.size() != 0) return "-ERR wrong number of arguments\r\n";
             return "+PONG\r\n";
-
+        case CommandType::SAVE:
+            if (cmd.args.size() != 1) return "-ERR wrong number of arguments\r\n";
+            if (store.saveSnapshot(cmd.args[0])) {
+                return "+OK\r\n";
+            } else {
+                return "-ERR could not save snapshot\r\n";
+            }
         default:
             return "-ERR unknown command\r\n";
     }

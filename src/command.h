@@ -12,6 +12,7 @@ enum class CommandType {
     EXISTS,
     EXPIRE,
     PING,
+    SAVE,
     UNKNOWN
 };
 
@@ -25,9 +26,10 @@ struct CommandParser {
 };
 
 class Store;
+class AOFLogger;
 
 struct CommandExecutor {
-    static string execute(const Command& cmd, Store& store);
+    static string execute(const Command& cmd, Store& store, AOFLogger& logger);
 };
 
 #endif
