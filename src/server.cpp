@@ -9,10 +9,8 @@
 #include <netinet/tcp.h>
 using namespace std;
 
-Store store; // Global store instance
-
-Server::Server(const string& addr, int p)
-    : address(addr), port(p) {}
+Server::Server(const string& addr, int p, Store& s, AOFLogger& logger)
+    : address(addr), port(p), store(s), aofLogger(logger) {}
 
 Server::~Server() {
     stop();
@@ -78,7 +76,7 @@ void Server::handleClient(int client_fd) {
         string response;
         {
             lock_guard<mutex> lock(store_mutex);
-            response = CommandExecutor::execute(cmd, store);
+            response = CommandExecutor::execute(cmd, store, aofLogger);
         }
         cout << "Command: " << buffer << "Response: " << response;
         send(client_fd, response.c_str(), response.size(), 0);

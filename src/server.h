@@ -7,13 +7,15 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include "aof_logger.h"
 using namespace std;
 
 class Store;
+class AOFLogger;
 
 class Server {
 public:
-    Server(const string& address, int port);
+    Server(const string& address, int port, Store& store, AOFLogger& logger);
     ~Server();
     void start();
     void stop();
@@ -23,8 +25,10 @@ private:
 
     string address;
     int port;
+    Store& store;
     int server_fd = -1;
     atomic<bool> running{false};
+    AOFLogger& aofLogger;
     mutex store_mutex;
 };
 
