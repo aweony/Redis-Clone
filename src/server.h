@@ -3,6 +3,7 @@
 
 #include <string>
 #include <mutex>
+#include <shared_mutex>
 #include <atomic>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -29,7 +30,7 @@ private:
     int server_fd = -1;
     atomic<bool> running{false};
     AOFLogger& aofLogger;
-    mutex store_mutex;
+    shared_mutex store_mutex;
 };
 
 #endif

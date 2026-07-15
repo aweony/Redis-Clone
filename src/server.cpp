@@ -74,11 +74,21 @@ void Server::handleClient(int client_fd) {
         Command cmd = CommandParser::parse(string(buffer, bytes_read));
 
         string response;
-        {
-            lock_guard<mutex> lock(store_mutex);
-            response = CommandExecutor::execute(cmd, store, aofLogger);
+        switch (cmd.type) {
+            case CommandType::GET:
+            case CommandType::EXISTS:
+            case CommandType::PING: {
+                shared_lock<shared_mutex> lock(store_mutex);
+                response = CommandExecutor::execute(cmd, store, aofLogger);
+                break;
+            }
+            default: {
+                unique_lock<shared_mutex> lock(store_mutex);
+                response = CommandExecutor::execute(cmd, store, aofLogger);
+                break;
+            }
         }
-        cout << "Command: " << buffer << "Response: " << response;
+
         send(client_fd, response.c_str(), response.size(), 0);
     }
 
