@@ -1,68 +1,83 @@
 #include "store.h"
-#include <iostream>
 #include <fstream>
+#include <mutex>
 using namespace std;
 
 void Store::set(const string& key, const string& value) {
-    lock_guard<mutex> lock(mtx);
+    unique_lock<shared_mutex> lock(mtx);
     data[key] = value;
-    expirations.erase(key); // Remove expiration if it exists
+    expirations.erase(key);
 }
 
 bool Store::get(const string& key, string& value) {
-    lock_guard<mutex> lock(mtx);
+    // Optimistic shared read for the common (non-expired) path
+    {
+        shared_lock<shared_mutex> lock(mtx);
+        auto it = data.find(key);
+        if (it == data.end()) return false;
+
+        auto exp_it = expirations.find(key);
+        if (exp_it == expirations.end() || time(nullptr) <= exp_it->second) {
+            value = it->second;
+            return true;
+        }
+    }
+    // Key expired — re-acquire exclusively to delete it
+    unique_lock<shared_mutex> lock(mtx);
     auto it = data.find(key);
-    if (it == data.end()){
-        return false;
+    if (it != data.end()) {
+        auto exp_it = expirations.find(key);
+        if (exp_it != expirations.end() && time(nullptr) > exp_it->second) {
+            data.erase(it);
+            expirations.erase(exp_it);
+        }
     }
-    // Check for expiration
-    auto exp_it = expirations.find(key);
-    if (exp_it != expirations.end() && time(nullptr) > exp_it->second) {
-        data.erase(it);
-        expirations.erase(exp_it);
-        return false;
-    }
-    value = it->second;
-    return true;
+    return false;
 }
 
 bool Store::del(const string& key) {
-    lock_guard<mutex> lock(mtx);
-    bool existed = data.erase(key) > 0;
+    unique_lock<shared_mutex> lock(mtx);
     expirations.erase(key);
-    return existed;
+    return data.erase(key) > 0;
 }
 
 bool Store::exists(const string& key) {
-    lock_guard<mutex> lock(mtx);
-    auto it = data.find(key);
-    if (it == data.end()) return false;
-    // Check for expiration
-    auto exp_it = expirations.find(key);
-    if (exp_it != expirations.end() && time(nullptr) > exp_it->second) {
-        data.erase(it);
-        expirations.erase(exp_it);
-        return false;
+    {
+        shared_lock<shared_mutex> lock(mtx);
+        auto it = data.find(key);
+        if (it == data.end()) return false;
+
+        auto exp_it = expirations.find(key);
+        if (exp_it == expirations.end() || time(nullptr) <= exp_it->second) return true;
     }
-    return true;
+    // Expired — clean up under exclusive lock
+    unique_lock<shared_mutex> lock(mtx);
+    auto it = data.find(key);
+    if (it != data.end()) {
+        auto exp_it = expirations.find(key);
+        if (exp_it != expirations.end() && time(nullptr) > exp_it->second) {
+            data.erase(it);
+            expirations.erase(exp_it);
+        }
+    }
+    return false;
 }
 
 void Store::expire(const string& key, int seconds) {
-    lock_guard<mutex> lock(mtx);
-    if (data.find(key) != data.end()) {
+    unique_lock<shared_mutex> lock(mtx);
+    if (data.count(key)) {
         expirations[key] = time(nullptr) + seconds;
     }
 }
 
 bool Store::saveSnapshot(const string& filename) {
-    lock_guard<mutex> lock(mtx);
+    shared_lock<shared_mutex> lock(mtx);
     ofstream ofs(filename);
     if (!ofs) return false;
 
     for (const auto& [key, value] : data) {
         ofs << key << ' ' << value << '\n';
     }
-
     return ofs.good();
 }
 
@@ -70,7 +85,7 @@ bool Store::loadSnapshot(const string& filename) {
     ifstream ifs(filename);
     if (!ifs) return false;
 
-    lock_guard<mutex> lock(mtx);
+    unique_lock<shared_mutex> lock(mtx);
     data.clear();
     expirations.clear();
 
@@ -80,6 +95,5 @@ bool Store::loadSnapshot(const string& filename) {
         if (sep == string::npos) continue;
         data[line.substr(0, sep)] = line.substr(sep + 1);
     }
-
     return true;
 }

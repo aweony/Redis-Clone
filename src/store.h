@@ -3,8 +3,7 @@
 
 #include <string>
 #include <unordered_map>
-#include <mutex>
-#include <iostream>
+#include <shared_mutex>
 using namespace std;
 
 class Store{
@@ -19,7 +18,7 @@ class Store{
     private:
         unordered_map<string, string> data;
         unordered_map<string, time_t> expirations;
-        mutex mtx;
+        shared_mutex mtx;
 };
 
 #endif
