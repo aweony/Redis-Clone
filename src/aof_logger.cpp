@@ -1,26 +1,50 @@
 #include "aof_logger.h"
-#include <iostream>
+#include <chrono>
 using namespace std;
 
 AOFLogger::AOFLogger(const string& filename) : filename(filename) {}
 
+AOFLogger::~AOFLogger() {
+    close();
+}
+
 bool AOFLogger::open() {
     file.open(filename, ios::app);
-    return file.is_open();
+    if (!file.is_open()) return false;
+
+    running = true;
+    flush_thread = thread(&AOFLogger::flushLoop, this);
+    return true;
 }
-AOFLogger::~AOFLogger() {
-    if (file.is_open()) {
-        file.close();
+
+void AOFLogger::close() {
+    if (running.exchange(false)) {
+        flush_thread.join();
+        lock_guard<mutex> lock(file_mutex);
+        if (file.is_open()) {
+            file.flush();
+            file.close();
+        }
     }
 }
+
+// Flushes buffered writes to disk once per second.
+void AOFLogger::flushLoop() {
+    while (running) {
+        this_thread::sleep_for(chrono::seconds(1));
+        lock_guard<mutex> lock(file_mutex);
+        if (file.is_open()) file.flush();
+    }
+}
+
 void AOFLogger::appendSet(const string& key, const string& value) {
+    lock_guard<mutex> lock(file_mutex);
     file << "SET " << key << " " << value << "\n";
-    file.flush();
 }
 
 void AOFLogger::appendDel(const string& key) {
+    lock_guard<mutex> lock(file_mutex);
     file << "DEL " << key << "\n";
-    file.flush();
 }
 
 bool AOFLogger::replay(Store& store) {
@@ -35,18 +59,11 @@ bool AOFLogger::replay(Store& store) {
         if (command == "SET") {
             size_t sep2 = line.find(' ', sep + 1);
             if (sep2 == string::npos) continue;
-            string key = line.substr(sep + 1, sep2 - sep - 1);
-            string value = line.substr(sep2 + 1);
-            store.set(key, value);
+            store.set(line.substr(sep + 1, sep2 - sep - 1), line.substr(sep2 + 1));
         } else if (command == "DEL") {
-            string key = line.substr(sep + 1);
-            store.del(key);
+            store.del(line.substr(sep + 1));
         }
     }
 
     return true;
-}
-
-void AOFLogger::close() {
-    file.close();
 }
