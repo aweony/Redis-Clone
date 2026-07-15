@@ -14,6 +14,8 @@ class Store{
         bool del(const string& key);
         bool exists(const string& key);
         void expire(const string& key, int seconds);
+        bool saveSnapshot(const string& filename);
+        bool loadSnapshot(const string& filename);
     private:
         unordered_map<string, string> data;
         unordered_map<string, time_t> expirations;
